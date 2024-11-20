@@ -79,17 +79,55 @@ const Graph: React.FC = () => {
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes] = useState<Node[]>(userArray.map(user => ({
-    id: user.id,
-    label: user.username,
-    x: 300,
-    y: 300,
-  })));
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragNode, setDragNode] = useState<number | null>(null);
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
-  const [viewportDimensions, setViewportDimensions] = useState({ width: 600, height: 600 });
+  const [viewportDimensions, setViewportDimensions] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight
+  }));
+
+  // Add resize listener effect
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Add margin constant
+  const VIEWPORT_MARGIN = 10;
+
+  const getRandomViewportPosition = (transform: Transform) => {
+    // Calculate visible viewport bounds in world coordinates with margins
+    const viewportLeft = (-transform.x + VIEWPORT_MARGIN) / transform.scale;
+    const viewportTop = (-transform.y + VIEWPORT_MARGIN) / transform.scale;
+    const viewportWidth = (viewportDimensions.width - 2 * VIEWPORT_MARGIN) / transform.scale;
+    const viewportHeight = (viewportDimensions.height - 2 * VIEWPORT_MARGIN) / transform.scale;
+
+    // Generate random position within safe area
+    return {
+      x: viewportLeft + Math.random() * viewportWidth,
+      y: viewportTop + Math.random() * viewportHeight
+    };
+  };
+
+  // Replace the fixed coordinates in nodes initialization
+  const [nodes, setNodes] = useState<Node[]>(userArray.map((user) => {
+    const position = getRandomViewportPosition(transform);
+    return {
+      id: user.id,
+      label: user.username,
+      x: position.x,
+      y: position.y,
+    };
+  }));
 
   // Prevent scrolling on the container
   useEffect(() => {
@@ -215,6 +253,8 @@ const Graph: React.FC = () => {
       className="graph-container"
     >
       <svg 
+        width={viewportDimensions.width}
+        height={viewportDimensions.height}
         viewBox={`0 0 ${viewportDimensions.width} ${viewportDimensions.height}`} 
         className="w-full border border-gray-200 rounded-lg"
         onWheel={handleWheel}
