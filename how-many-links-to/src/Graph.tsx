@@ -14,14 +14,14 @@ class User {
 
 let userArray: User[] = [];
 
-// Generate users with random ids
+// Create users
+
 for (let i = 0; i < 10; i++) {
   const id = Math.floor(Math.random() * 1000);
-  const username = "test";
+  const username = "Arhan Busam";
   userArray.push(new User(id, username, []));
 }
 
-// Assign random followers to each user
 userArray.forEach(user => {
   const followerCount = Math.floor(Math.random() * userArray.length);
   const followers: number[] = [];
@@ -289,24 +289,37 @@ const Graph: React.FC = () => {
               <circle
                 cx={node.x}
                 cy={node.y}
-                r={20 / transform.scale}
+                r={40 / transform.scale}
                 fill="#3b82f6"
                 stroke="#1d4ed8"
                 strokeWidth={2 / transform.scale}
                 onMouseDown={(e) => handleMouseDown(node.id, e)}
                 className="cursor-pointer"
               />
-              <text
-                x={node.x}
-                y={node.y}
-                textAnchor="middle"
-                dy=".3em"
-                fill="white"
-                fontSize={`${12 / transform.scale}px`}
-                pointerEvents="none"
+              <foreignObject
+                x={node.x - (40 / transform.scale)}
+                y={node.y - (40 / transform.scale)}
+                width={80 / transform.scale}
+                height={80 / transform.scale}
+                style={{ pointerEvents: 'none' }}
               >
-                {node.label}
-              </text>
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: `${9 / transform.scale}px`,
+                    textAlign: 'center',
+                    wordWrap: 'break-word',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {node.label}
+                </div>
+              </foreignObject>
             </g>
           ))}
         </g>
