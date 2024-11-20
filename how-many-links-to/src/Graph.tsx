@@ -1,19 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// // Type definitions
-// type FollowerMap = {
-//   [key: string]: number[];
-// };
+class User {
+  id: number;
+  username: string;
+  followers: number[];
 
-class FollowerMap {
-  numberDict: { [key: number]: number[] };
-  stringDict: { [key: number]: string };
-
-  constructor() {
-    this.numberDict = {};
-    this.stringDict = {};
+  constructor(id: number, username: string, followers: number[]) {
+    this.id = id;
+    this.username = username;
+    this.followers = followers;
   }
 }
+
+let userArray: User[] = [];
+
+// Generate users with random ids
+for (let i = 0; i < 10; i++) {
+  const id = Math.floor(Math.random() * 1000);
+  const username = "test";
+  userArray.push(new User(id, username, []));
+}
+
+// Assign random followers to each user
+userArray.forEach(user => {
+  const followerCount = Math.floor(Math.random() * userArray.length);
+  const followers: number[] = [];
+
+  while (followers.length < followerCount) {
+    const randomUser = userArray[Math.floor(Math.random() * userArray.length)];
+    if (randomUser.id !== user.id && !followers.includes(randomUser.id)) {
+      followers.push(randomUser.id);
+    }
+  }
+
+  user.followers = followers;
+});
 
 interface Node {
   id: number;
@@ -21,6 +42,18 @@ interface Node {
   x: number;
   y: number;
 }
+
+// Define screen dimensions
+const screenWidth = window.innerWidth;
+const screenHeight = window.innerHeight;
+
+// Create nodes with random positions
+let nodes: Node[] = userArray.map(user => ({
+  id: user.id,
+  label: user.username,
+  x: Math.random() * screenWidth,
+  y: Math.random() * screenHeight,
+}));
 
 interface Link {
   source: number;
@@ -34,40 +67,29 @@ interface Transform {
 }
 
 const Graph: React.FC = () => {
-  // Sample data structure
-  const initialData: FollowerMap = new FollowerMap();
-  initialData.numberDict = {
-    1: [3, 5, 8],
-    2: [4, 6],
-    3: [7, 9],
-    4: [8],
-    5: [2, 6],
-    6: [10],
-    7: [1],
-    8: [3],
-    9: [5],
-    10: [4]
-  };
-  initialData.stringDict = {
-    1: "alpha",
-    2: "bravo",
-    3: "charlie",
-    4: "delta",
-    5: "echo",
-    6: "foxtrot",
-    7: "golf",
-    8: "hotel",
-    9: "india",
-    10: "juliet"
-  };
+  // Create links based on followers
+  const links: Link[] = [];
+  userArray.forEach(user => {
+    user.followers.forEach(followerId => {
+      links.push({
+        source: user.id,
+        target: followerId,
+      });
+    });
+  });
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [links, setLinks] = useState<Link[]>([]);
+  const [nodes, setNodes] = useState<Node[]>(userArray.map(user => ({
+    id: user.id,
+    label: user.username,
+    x: 300,
+    y: 300,
+  })));
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragNode, setDragNode] = useState<number | null>(null);
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [viewportDimensions, setViewportDimensions] = useState({ width: 600, height: 600 });
 
   // Prevent scrolling on the container
   useEffect(() => {
@@ -80,36 +102,6 @@ const Graph: React.FC = () => {
       container.addEventListener('wheel', preventDefault, { passive: false });
       return () => container.removeEventListener('wheel', preventDefault);
     }
-  }, []);
-
-  // Initialize the graph
-  useEffect(() => {
-    const nodeCount = Object.keys(initialData.numberDict).length;
-    const radius = 200;
-    const centerX = 300;
-    const centerY = 300;
-    const nodeList: Node[] = Array.from({ length: nodeCount }, (_, i) => {
-      const angle = (i * 2 * Math.PI) / nodeCount;
-      return {
-        id: i + 1,
-        label: initialData.stringDict[i+1],
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle)
-      };
-    });
-
-    const linkList: Link[] = [];
-    for (let i = 0; i < nodeCount; i++) {
-      for (let j = 0; j < initialData.numberDict[i+1].length; j++) {
-        linkList.push({
-          source: i + 1,
-          target: initialData.numberDict[i+1][j]
-        });
-      }
-    }
-
-    setNodes(nodeList);
-    setLinks(linkList);
   }, []);
 
   // Update isAnyNodeVisible to be more permissive
@@ -163,8 +155,8 @@ const Graph: React.FC = () => {
     if (!isDragging && !isPanning) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) * (600 / rect.width);
-    const mouseY = (e.clientY - rect.top) * (600 / rect.height);
+    const mouseX = (e.clientX - rect.left) * (viewportDimensions.width / rect.width);
+    const mouseY = (e.clientY - rect.top) * (viewportDimensions.height / rect.height);
 
     if (isDragging && dragNode !== null) {
       // Calculate new position without constraints
@@ -199,13 +191,31 @@ const Graph: React.FC = () => {
     setIsPanning(false);
   };
 
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setViewportDimensions({ width, height });
+      }
+    };
+
+    // Initial dimension setup
+    updateDimensions();
+
+    // Add resize listener
+    window.addEventListener('resize', updateDimensions);
+
+    // Cleanup
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
   return (
     <div 
       ref={containerRef} 
-      className="w-full max-w-2xl mx-auto p-4 overflow-hidden"
+      className="graph-container"
     >
       <svg 
-        viewBox="0 0 600 600" 
+        viewBox={`0 0 ${viewportDimensions.width} ${viewportDimensions.height}`} 
         className="w-full border border-gray-200 rounded-lg"
         onWheel={handleWheel}
         onMouseMove={handleMouseMove}
