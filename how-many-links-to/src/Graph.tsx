@@ -144,22 +144,22 @@ const Graph: React.FC = () => {
 
   // Update isAnyNodeVisible to be more permissive
   const isAnyNodeVisible = (newTransform: Transform): boolean => {
-    const buffer = 1000; // Add a buffer zone around viewport
+    const buffer = -100; // Add a buffer zone around viewport
     return nodes.some(node => {
       const transformedX = node.x * newTransform.scale + newTransform.x;
       const transformedY = node.y * newTransform.scale + newTransform.y;
       return transformedX >= -buffer && 
-             transformedX <= 600 + buffer && 
+             transformedX <= viewportDimensions.width + buffer && 
              transformedY >= -buffer && 
-             transformedY <= 600 + buffer;
+             transformedY <= viewportDimensions.height + buffer;
     });
   };
 
   const handleWheel = (e: React.WheelEvent<SVGSVGElement>): void => {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) * (600 / rect.width);
-    const mouseY = (e.clientY - rect.top) * (600 / rect.height);
+    const mouseX = (e.clientX - rect.left) * (viewportDimensions.width / rect.width);
+    const mouseY = (e.clientY - rect.top) * (viewportDimensions.height / rect.height);
 
     const delta = -e.deltaY;
     const scaleFactor = delta > 0 ? 1.1 : 1 / 1.1;
@@ -207,8 +207,8 @@ const Graph: React.FC = () => {
           : node
       ));
     } else if (isPanning) {
-      const dx = (e.movementX * 600) / rect.width;
-      const dy = (e.movementY * 600) / rect.height;
+      const dx = (e.movementX * 2000) / rect.width;
+      const dy = (e.movementY * 2000) / rect.height;
       
       const newTransform = {
         ...transform,
