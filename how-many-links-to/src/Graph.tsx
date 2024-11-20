@@ -1,63 +1,80 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 class User {
-  id: number;
+  id: string;
   username: string;
-  followers: number[];
+  followers: string[];
 
-  constructor(id: number, username: string, followers: number[]) {
+  constructor(id: string, username: string, followers: string[]) {
     this.id = id;
     this.username = username;
     this.followers = followers;
   }
 }
 
-let userArray: User[] = [];
+
 
 // Create users
+// function getUsers(): Promise<void> {
+//   const request: RequestInfo = new Request('https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows?actor=arhanbusam', {
+//     method: 'GET'
+//   });
 
-for (let i = 0; i < 10; i++) {
-  const id = Math.floor(Math.random() * 1000);
-  const username = "Arhan Busam";
-  userArray.push(new User(id, username, []));
-}
+//   return fetch(request)
+//     .then(response => response.json())
+//     .then(data => {
+//       data["follows"].forEach((user: { [x: string]: string; }) => {
+//         let userObj = new User(user["did"], user["displayName"], []);
+//         setUserArray([...userArray, userObj]);
+//       });
+//       return;
+//     })
+//     .catch(error => {
+//       console.error('Error:', error);
+//     });
+  // for (let i = 0; i < 10; i++) {
+  //     const id = Math.floor(Math.random() * 1000);
+  //     const username = "Arhan Busam";
+  //     userArray.push(new User(id, username, []));
+  //   }
 
-userArray.forEach(user => {
-  const followerCount = Math.floor(Math.random() * userArray.length);
-  const followers: number[] = [];
+  //   userArray.forEach(user => {
+  //     const followerCount = Math.floor(Math.random() * userArray.length);
+  //     const followers: number[] = [];
 
-  while (followers.length < followerCount) {
-    const randomUser = userArray[Math.floor(Math.random() * userArray.length)];
-    if (randomUser.id !== user.id && !followers.includes(randomUser.id)) {
-      followers.push(randomUser.id);
-    }
-  }
+  //     while (followers.length < followerCount) {
+  //       const randomUser = userArray[Math.floor(Math.random() * userArray.length)];
+  //       if (randomUser.id !== user.id && !followers.includes(randomUser.id)) {
+  //         followers.push(randomUser.id);
+  //       }
+  //     }
 
-  user.followers = followers;
-});
+  //     user.followers = followers;
+  //   });
+// }
 
 interface Node {
-  id: number;
+  id: string;
   label: string;
   x: number;
   y: number;
 }
 
 // Define screen dimensions
-const screenWidth = window.innerWidth;
-const screenHeight = window.innerHeight;
+// const screenWidth = window.innerWidth;
+// const screenHeight = window.innerHeight;
 
 // Create nodes with random positions
-let nodes: Node[] = userArray.map(user => ({
-  id: user.id,
-  label: user.username,
-  x: Math.random() * screenWidth,
-  y: Math.random() * screenHeight,
-}));
+// let nodes: Node[] = userArray.map(user => ({
+//   id: user.id,
+//   label: user.username,
+//   x: Math.random() * screenWidth,
+//   y: Math.random() * screenHeight,
+// }));
 
 interface Link {
-  source: number;
-  target: number;
+  source: string;
+  target: string;
 }
 
 interface Transform {
@@ -67,6 +84,32 @@ interface Transform {
 }
 
 const Graph: React.FC = () => {
+  const [userArray, setUserArray] = useState<User[]>([]);
+
+  const request: RequestInfo = new Request('https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows?actor=arhanbusam.bsky.social', {
+    method: 'GET'
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch(request)
+      const data = await response.json()
+      console.log(data);
+
+      if (data && data["follows"]) {
+        const newUsers = data["follows"].map((user: { [x: string]: string; }) => 
+          new User(user["did"], user["displayName"], [])
+        );
+        setUserArray(prevArray => [...prevArray, ...newUsers]);
+        console.log(newUsers);
+      }
+     
+    };
+
+    fetchData();
+    return;
+  }, []);
+  
   // Create links based on followers
   const links: Link[] = [];
   userArray.forEach(user => {
@@ -80,7 +123,7 @@ const Graph: React.FC = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragNode, setDragNode] = useState<number | null>(null);
+  const [dragNode, setDragNode] = useState<string | null>(null);
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const [viewportDimensions, setViewportDimensions] = useState(() => ({
@@ -178,7 +221,7 @@ const Graph: React.FC = () => {
     }
   };
 
-  const handleMouseDown = (nodeId: number | null, e: React.MouseEvent<SVGElement>): void => {
+  const handleMouseDown = (nodeId: string | null, e: React.MouseEvent<SVGElement>): void => {
     e.preventDefault();
     if (nodeId !== null) {
       setIsDragging(true);
