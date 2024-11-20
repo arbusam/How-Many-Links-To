@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Type definitions
-type FollowerMap = {
-  [key: number]: number[];
-};
+// // Type definitions
+// type FollowerMap = {
+//   [key: string]: number[];
+// };
+
+class FollowerMap {
+  numberDict: { [key: number]: number[] };
+  stringDict: { [key: number]: string };
+
+  constructor() {
+    this.numberDict = {};
+    this.stringDict = {};
+  }
+}
 
 interface Node {
   id: number;
+  label: string;
   x: number;
   y: number;
 }
@@ -24,7 +35,8 @@ interface Transform {
 
 const Graph: React.FC = () => {
   // Sample data structure
-  const initialData: FollowerMap = {
+  const initialData: FollowerMap = new FollowerMap();
+  initialData.numberDict = {
     1: [3, 5, 8],
     2: [4, 6],
     3: [7, 9],
@@ -35,6 +47,18 @@ const Graph: React.FC = () => {
     8: [3],
     9: [5],
     10: [4]
+  };
+  initialData.stringDict = {
+    1: "alpha",
+    2: "bravo",
+    3: "charlie",
+    4: "delta",
+    5: "echo",
+    6: "foxtrot",
+    7: "golf",
+    8: "hotel",
+    9: "india",
+    10: "juliet"
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,39 +84,44 @@ const Graph: React.FC = () => {
 
   // Initialize the graph
   useEffect(() => {
-    const nodeCount = 10;
+    const nodeCount = Object.keys(initialData.numberDict).length;
     const radius = 200;
     const centerX = 300;
     const centerY = 300;
-    
     const nodeList: Node[] = Array.from({ length: nodeCount }, (_, i) => {
       const angle = (i * 2 * Math.PI) / nodeCount;
       return {
         id: i + 1,
+        label: initialData.stringDict[i+1],
         x: centerX + radius * Math.cos(angle),
         y: centerY + radius * Math.sin(angle)
       };
     });
 
     const linkList: Link[] = [];
-    Object.entries(initialData).forEach(([source, targets]) => {
-      targets.forEach(target => {
+    for (let i = 0; i < nodeCount; i++) {
+      for (let j = 0; j < initialData.numberDict[i+1].length; j++) {
         linkList.push({
-          source: parseInt(source),
-          target
+          source: i + 1,
+          target: initialData.numberDict[i+1][j]
         });
-      });
-    });
+      }
+    }
 
     setNodes(nodeList);
     setLinks(linkList);
   }, []);
 
+  // Update isAnyNodeVisible to be more permissive
   const isAnyNodeVisible = (newTransform: Transform): boolean => {
+    const buffer = 1000; // Add a buffer zone around viewport
     return nodes.some(node => {
       const transformedX = node.x * newTransform.scale + newTransform.x;
       const transformedY = node.y * newTransform.scale + newTransform.y;
-      return transformedX >= 0 && transformedX <= 600 && transformedY >= 0 && transformedY <= 600;
+      return transformedX >= -buffer && 
+             transformedX <= 600 + buffer && 
+             transformedY >= -buffer && 
+             transformedY <= 600 + buffer;
     });
   };
 
@@ -129,31 +158,27 @@ const Graph: React.FC = () => {
     }
   };
 
+  // Update handleMouseMove to remove position constraints
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>): void => {
     if (!isDragging && !isPanning) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const svgWidth = rect.width;
-    const svgHeight = rect.height;
-    
+    const mouseX = (e.clientX - rect.left) * (600 / rect.width);
+    const mouseY = (e.clientY - rect.top) * (600 / rect.height);
+
     if (isDragging && dragNode !== null) {
-      const x = ((e.clientX - rect.left) * (600 / svgWidth) - transform.x) / transform.scale;
-      const y = ((e.clientY - rect.top) * (600 / svgHeight) - transform.y) / transform.scale;
+      // Calculate new position without constraints
+      const newX = (mouseX - transform.x) / transform.scale;
+      const newY = (mouseY - transform.y) / transform.scale;
       
-      setNodes(prevNodes => 
-        prevNodes.map(node => 
-          node.id === dragNode 
-            ? { 
-                ...node, 
-                x: Math.max(20, Math.min(580, x)),
-                y: Math.max(20, Math.min(580, y))
-              }
-            : node
-        )
-      );
+      setNodes(nodes.map(node => 
+        node.id === dragNode 
+          ? { ...node, x: newX, y: newY }
+          : node
+      ));
     } else if (isPanning) {
-      const dx = (e.movementX * 600) / svgWidth;
-      const dy = (e.movementY * 600) / svgHeight;
+      const dx = (e.movementX * 600) / rect.width;
+      const dy = (e.movementY * 600) / rect.height;
       
       const newTransform = {
         ...transform,
@@ -230,7 +255,7 @@ const Graph: React.FC = () => {
                 fontSize={`${12 / transform.scale}px`}
                 pointerEvents="none"
               >
-                {node.id}
+                {node.label}
               </text>
             </g>
           ))}
