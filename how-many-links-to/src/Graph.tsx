@@ -3,12 +3,12 @@ import React, { useState, useEffect, useRef } from 'react';
 class User {
   id: string;
   username: string;
-  followers: string[];
+  following: string[];
 
-  constructor(id: string, username: string, followers: string[]) {
+  constructor(id: string, username: string, following: string[]) {
     this.id = id;
     this.username = username;
-    this.followers = followers;
+    this.following = following;
   }
 }
 
@@ -82,44 +82,79 @@ interface Transform {
   x: number;
   y: number;
 }
-
+let cursor = "";
 const Graph: React.FC = () => {
   const [userArray, setUserArray] = useState<User[]>([]);
 
-  const request: RequestInfo = new Request('https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows?actor=arhanbusam.bsky.social', {
-    method: 'GET'
-  });
+  useEffect(() => {
+      const fetchData = async () => {
+        while (true) {
+          const request: RequestInfo = new Request(`https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows?actor=arhanbusam.bsky.social&limit=100&cursor=${cursor}`, {
+            method: 'GET'
+          });
+          const response = await fetch(request)
+          const data = await response.json()
+          // console.log(data);
+
+          if (data && data["subject"]) {
+            const searchUser = new User(data["subject"]["did"], data["subject"]["displayName"], []);
+            data["follows"].forEach((follower: { [x: string]: string; }) => {
+              searchUser.following.push(follower["did"]);
+            });
+            setUserArray(prevArray => [...prevArray, searchUser]);
+          }
+
+          if (data && data["follows"]) {
+            const newUsers = data["follows"].map((user: { [x: string]: string; }) => 
+              new User(user["did"], user["displayName"], [])
+            );
+            setUserArray(prevArray => [...prevArray, ...newUsers]);
+            // console.log(newUsers);
+          }
+          //  console.log(userArray);
+          if (data["cursor"]) {
+            cursor = data["cursor"];
+          } else {
+            cursor = "";
+            break;
+          }
+        }
+      };
+
+      fetchData();
+  }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetch(request)
-      const data = await response.json()
-      console.log(data);
-
-      if (data && data["follows"]) {
-        const newUsers = data["follows"].map((user: { [x: string]: string; }) => 
-          new User(user["did"], user["displayName"], [])
-        );
-        setUserArray(prevArray => [...prevArray, ...newUsers]);
-        console.log(newUsers);
-      }
-     
-    };
-
-    fetchData();
-    return;
-  }, []);
+    userArray.forEach(user => {
+      const followersRequest: RequestInfo = new Request(`https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows?actor=${user.id}`, {
+        method: 'GET'
+      });
+      const fetchData = async () => {
+        const response = await fetch(followersRequest);
+        const data = await response.json();
+        if (data && data["follows"]) {
+          data["follows"].forEach((follower: { [x: string]: string; }) => {
+            user.following.push(follower["did"]);
+          });
+        }
+      };
+      fetchData();
+    }, [userArray]);
+  }, [userArray]);
   
-  // Create links based on followers
-  const links: Link[] = [];
-  userArray.forEach(user => {
-    user.followers.forEach(followerId => {
-      links.push({
-        source: user.id,
-        target: followerId,
+  const [links, setLinks] = useState<Link[]>([]);
+  useEffect(() => {
+    // Create links based on followers
+    userArray.forEach(user => {
+      user.following.forEach(followerId => {
+        // if (userArray.some(u => u.id === followerId)) {
+        setLinks(prevLinks => [...prevLinks, { source: followerId, target: user.id }]);
+        // console.log(followerId);
+        // }
       });
     });
-  });
+    console.log(userArray);
+  }, [userArray]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -145,7 +180,7 @@ const Graph: React.FC = () => {
   }, []);
 
   // Add margin constant
-  const VIEWPORT_MARGIN = 10;
+  const VIEWPORT_MARGIN = 100;
 
   const getRandomViewportPosition = (transform: Transform) => {
     // Calculate visible viewport bounds in world coordinates with margins
@@ -171,6 +206,18 @@ const Graph: React.FC = () => {
       y: position.y,
     };
   }));
+  // Update nodes when userArray changes
+  useEffect(() => {
+    setNodes(userArray.map((user) => {
+      const position = getRandomViewportPosition(transform);
+      return {
+        id: user.id,
+        label: user.username,
+        x: position.x,
+        y: position.y,
+      };
+    }));
+  }, [userArray]);
 
   // Prevent scrolling on the container
   useEffect(() => {
