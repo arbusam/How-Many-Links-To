@@ -1,4 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import { collection, addDoc, getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: "how-many-links-to.firebaseapp.com",
+  projectId: "how-many-links-to",
+  storageBucket: "how-many-links-to.firebasestorage.app",
+  messagingSenderId: "128986711554",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: "G-J6SY2S96YS"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
 
 class User {
   id: string;
@@ -133,8 +151,18 @@ const Graph: React.FC = () => {
         const response = await fetch(followersRequest);
         const data = await response.json();
         if (data && data["follows"]) {
-          data["follows"].forEach((follower: { [x: string]: string; }) => {
+          await data["follows"].forEach(async (follower: { [x: string]: string; }) => {
             user.following.push(follower["did"]);
+            try {
+              const docRef = await addDoc(collection(db, "Users", user.id), {
+                username: user.username,
+                following: user.following
+              });
+            
+              console.log("Document written with ID: ", docRef.id);
+            } catch (e) {
+              console.error("Error adding document: ", e);
+            }
           });
         }
       };
@@ -196,9 +224,18 @@ const Graph: React.FC = () => {
     };
   };
 
+  // Gets random position anywhere
+  const getRandomPosition = () => ({
+    x: Math.random() * 5000,
+    y: Math.random() * 5000
+  });
+
   // Replace the fixed coordinates in nodes initialization
   const [nodes, setNodes] = useState<Node[]>(userArray.map((user) => {
-    const position = getRandomViewportPosition(transform);
+    let position = getRandomPosition();
+    if (user.id === "arhanbusam.bsky.social") {
+      position = getRandomViewportPosition(transform);
+    }
     return {
       id: user.id,
       label: user.username,
@@ -209,7 +246,7 @@ const Graph: React.FC = () => {
   // Update nodes when userArray changes
   useEffect(() => {
     setNodes(userArray.map((user) => {
-      const position = getRandomViewportPosition(transform);
+      const position = getRandomPosition();
       return {
         id: user.id,
         label: user.username,
